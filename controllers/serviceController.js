@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Service } from "../models/Service.js";
 import { initialServices } from "../seed/data.js";
 import { getDbStatus } from "../config/db.js";
@@ -48,7 +49,10 @@ export const updateService = async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     if (getDbStatus()) {
-      const updated = await Service.findOneAndUpdate({ $or: [{ id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] }, data, { new: true });
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }];
+      if (isObjectId) conditions.push({ _id: id });
+      const updated = await Service.findOneAndUpdate({ $or: conditions }, data, { new: true });
       return res.json({ success: true, message: "Service updated successfully!", data: updated });
     } else {
       const idx = inMemoryServices.findIndex(s => s.id === id);
@@ -64,11 +68,16 @@ export const deleteService = async (req, res) => {
   try {
     const { id } = req.params;
     if (getDbStatus()) {
-      await Service.findOneAndDelete({ $or: [{ id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] });
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }];
+      if (isObjectId) conditions.push({ _id: id });
+      await Service.findOneAndDelete({ $or: conditions });
+      return res.json({ success: true, message: "Service deleted successfully!" });
     } else {
-      inMemoryServices = inMemoryServices.filter(s => s.id !== id);
+      const idx = inMemoryServices.findIndex(s => s.id === id);
+      if (idx !== -1) inMemoryServices.splice(idx, 1);
+      return res.json({ success: true, message: "Service deleted successfully!" });
     }
-    return res.json({ success: true, message: "Service deleted successfully!" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

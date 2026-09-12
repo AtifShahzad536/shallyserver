@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Contact } from "../models/Contact.js";
 import { getDbStatus } from "../config/db.js";
 
@@ -64,19 +65,21 @@ export const submitContact = async (req, res) => {
     };
 
     if (getDbStatus()) {
-      const contactRecord = new Contact(newInquiry);
-      await contactRecord.save();
+      const contactDoc = new Contact(newInquiry);
+      await contactDoc.save();
+      return res.status(201).json({
+        success: true,
+        message: "Thank you, your message has reached Shally! She will respond within 24 hours.",
+        data: contactDoc
+      });
     } else {
       inMemoryInquiries.unshift(newInquiry);
+      return res.status(201).json({
+        success: true,
+        message: "Thank you, your message has reached Shally! She will respond within 24 hours.",
+        data: newInquiry
+      });
     }
-
-    console.log(`[New Contact Inquiry from ${name} (${email})]: "${message.slice(0, 40)}..."`);
-
-    return res.status(201).json({
-      success: true,
-      message: "Thank you, your message has reached Shally! She will respond within 24 hours.",
-      data: newInquiry
-    });
   } catch (error) {
     console.error("Contact Submission Error:", error);
     res.status(500).json({ success: false, message: "Server error processing your inquiry." });
@@ -105,8 +108,11 @@ export const updateContactStatus = async (req, res) => {
     const { status } = req.body;
 
     if (getDbStatus()) {
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }];
+      if (isObjectId) conditions.push({ _id: id });
       const updated = await Contact.findOneAndUpdate(
-        { $or: [{ id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] },
+        { $or: conditions },
         { status },
         { new: true }
       );
@@ -128,7 +134,10 @@ export const deleteContact = async (req, res) => {
   try {
     const { id } = req.params;
     if (getDbStatus()) {
-      await Contact.findOneAndDelete({ $or: [{ id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] });
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }];
+      if (isObjectId) conditions.push({ _id: id });
+      await Contact.findOneAndDelete({ $or: conditions });
     } else {
       inMemoryInquiries = inMemoryInquiries.filter((c) => c.id !== id && c._id !== id);
     }

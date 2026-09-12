@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Project } from "../models/Project.js";
 import { initialProjects } from "../seed/data.js";
 import { getDbStatus } from "../config/db.js";
@@ -34,7 +35,10 @@ export const getProjectById = async (req, res) => {
   try {
     const { id } = req.params;
     if (getDbStatus()) {
-      const project = await Project.findOne({ $or: [{ id }, { slug: id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] });
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }, { slug: id }];
+      if (isObjectId) conditions.push({ _id: id });
+      const project = await Project.findOne({ $or: conditions });
       if (!project) return res.status(404).json({ success: false, message: "Project not found" });
       return res.json({ success: true, data: project });
     } else {
@@ -58,27 +62,24 @@ export const createProject = async (req, res) => {
     const newId = data.id || data.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-" + Date.now().toString().slice(-4);
     const slug = data.slug || newId;
 
-    const projectObj = {
+    const newProject = {
       ...data,
       id: newId,
       slug,
+      tags: Array.isArray(data.tags) ? data.tags : (data.tags ? data.tags.split(",").map(t => t.trim()) : []),
       deliverables: Array.isArray(data.deliverables) ? data.deliverables : (data.deliverables ? data.deliverables.split("\n").filter(Boolean) : []),
-      tags: Array.isArray(data.tags) ? data.tags : (data.tags ? data.tags.split(",").map(t => t.trim()).filter(Boolean) : []),
-      tools: Array.isArray(data.tools) ? data.tools : (data.tools ? data.tools.split(",").map(t => t.trim()).filter(Boolean) : []),
-      metrics: Array.isArray(data.metrics) ? data.metrics : [
-        { label: "Views / Reach", value: "1.2M+" },
-        { label: "Engagement", value: "8.4%" }
-      ],
-      createdAt: new Date().toISOString()
+      tools: Array.isArray(data.tools) ? data.tools : (data.tools ? data.tools.split(",").map(t => t.trim()) : []),
+      gallery: Array.isArray(data.gallery) ? data.gallery : (data.gallery ? [data.gallery] : []),
+      metrics: Array.isArray(data.metrics) ? data.metrics : []
     };
 
     if (getDbStatus()) {
-      const created = new Project(projectObj);
-      await created.save();
-      return res.status(201).json({ success: true, message: "Project created successfully!", data: created });
+      const project = new Project(newProject);
+      await project.save();
+      return res.status(201).json({ success: true, message: "Project created successfully!", data: project });
     } else {
-      inMemoryProjects.unshift(projectObj);
-      return res.status(201).json({ success: true, message: "Project created successfully (In-Memory)", data: projectObj });
+      inMemoryProjects.unshift(newProject);
+      return res.status(201).json({ success: true, message: "Project created successfully (In-Memory)", data: newProject });
     }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -92,18 +93,21 @@ export const updateProject = async (req, res) => {
     const data = req.body;
 
     if (getDbStatus()) {
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }, { slug: id }];
+      if (isObjectId) conditions.push({ _id: id });
       const updated = await Project.findOneAndUpdate(
-        { $or: [{ id }, { slug: id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] },
+        { $or: conditions },
         data,
         { new: true }
       );
-      if (!updated) return res.status(404).json({ success: false, message: "Project not found to update." });
+      if (!updated) return res.status(404).json({ success: false, message: "Project not found" });
       return res.json({ success: true, message: "Project updated successfully!", data: updated });
     } else {
-      const index = inMemoryProjects.findIndex((p) => p.id === id || p.slug === id);
-      if (index === -1) return res.status(404).json({ success: false, message: "Project not found to update." });
-      inMemoryProjects[index] = { ...inMemoryProjects[index], ...data };
-      return res.json({ success: true, message: "Project updated successfully!", data: inMemoryProjects[index] });
+      const idx = inMemoryProjects.findIndex((p) => p.id === id || p.slug === id);
+      if (idx === -1) return res.status(404).json({ success: false, message: "Project not found" });
+      inMemoryProjects[idx] = { ...inMemoryProjects[idx], ...data };
+      return res.json({ success: true, message: "Project updated successfully!", data: inMemoryProjects[idx] });
     }
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -115,13 +119,16 @@ export const deleteProject = async (req, res) => {
   try {
     const { id } = req.params;
     if (getDbStatus()) {
-      const deleted = await Project.findOneAndDelete({ $or: [{ id }, { slug: id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] });
-      if (!deleted) return res.status(404).json({ success: false, message: "Project not found to delete." });
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }, { slug: id }];
+      if (isObjectId) conditions.push({ _id: id });
+      const deleted = await Project.findOneAndDelete({ $or: conditions });
+      if (!deleted) return res.status(404).json({ success: false, message: "Project not found" });
       return res.json({ success: true, message: "Project deleted successfully!" });
     } else {
-      const index = inMemoryProjects.findIndex((p) => p.id === id || p.slug === id);
-      if (index === -1) return res.status(404).json({ success: false, message: "Project not found to delete." });
-      inMemoryProjects.splice(index, 1);
+      const idx = inMemoryProjects.findIndex((p) => p.id === id || p.slug === id);
+      if (idx === -1) return res.status(404).json({ success: false, message: "Project not found" });
+      inMemoryProjects.splice(idx, 1);
       return res.json({ success: true, message: "Project deleted successfully!" });
     }
   } catch (error) {

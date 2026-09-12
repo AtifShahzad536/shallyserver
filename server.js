@@ -9,13 +9,12 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
+// Connect to MongoDB asynchronously
 connectDB();
 
 // Dynamic Permissive CORS Middleware (Allows Vercel domains, custom domains & local development)
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow all origins (browsers, mobile, serverless, localhost, vercel.app)
     return callback(null, true);
   },
   credentials: true,
@@ -44,6 +43,15 @@ app.get("/", (req, res) => {
       "/api/contact (POST/GET)",
       "/api/health"
     ]
+  });
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error("Global Server Error:", err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal server error."
   });
 });
 

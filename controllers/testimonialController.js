@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Testimonial } from "../models/Testimonial.js";
 import { initialTestimonials } from "../seed/data.js";
 import { getDbStatus } from "../config/db.js";
@@ -48,7 +49,10 @@ export const updateTestimonial = async (req, res) => {
     const { id } = req.params;
     const data = req.body;
     if (getDbStatus()) {
-      const updated = await Testimonial.findOneAndUpdate({ $or: [{ id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] }, data, { new: true });
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }];
+      if (isObjectId) conditions.push({ _id: id });
+      const updated = await Testimonial.findOneAndUpdate({ $or: conditions }, data, { new: true });
       return res.json({ success: true, message: "Testimonial updated successfully!", data: updated });
     } else {
       const idx = inMemoryTestimonials.findIndex(t => t.id === id);
@@ -64,11 +68,16 @@ export const deleteTestimonial = async (req, res) => {
   try {
     const { id } = req.params;
     if (getDbStatus()) {
-      await Testimonial.findOneAndDelete({ $or: [{ id }, { _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }] });
+      const isObjectId = mongoose.Types.ObjectId.isValid(id);
+      const conditions = [{ id }];
+      if (isObjectId) conditions.push({ _id: id });
+      await Testimonial.findOneAndDelete({ $or: conditions });
+      return res.json({ success: true, message: "Testimonial deleted successfully!" });
     } else {
-      inMemoryTestimonials = inMemoryTestimonials.filter(t => t.id !== id);
+      const idx = inMemoryTestimonials.findIndex(t => t.id === id);
+      if (idx !== -1) inMemoryTestimonials.splice(idx, 1);
+      return res.json({ success: true, message: "Testimonial deleted successfully!" });
     }
-    return res.json({ success: true, message: "Testimonial deleted successfully!" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
