@@ -48,6 +48,8 @@ const siteSettingSchema = new mongoose.Schema(
     },
 
     socialLinks: {
+      whatsapp: { type: String, default: "https://wa.me/15552345678" },
+      facebook: { type: String, default: "https://facebook.com/shally.creates" },
       instagram: { type: String, default: "https://instagram.com/shally.creates" },
       tiktok: { type: String, default: "https://tiktok.com/@shallytok" },
       linkedin: { type: String, default: "https://linkedin.com/in/shally-creative" },

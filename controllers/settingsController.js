@@ -46,6 +46,8 @@ const defaultSettings = {
   },
 
   socialLinks: {
+    whatsapp: "https://wa.me/15552345678",
+    facebook: "https://facebook.com/shally.creates",
     instagram: "https://instagram.com/shally.creates",
     tiktok: "https://tiktok.com/@shallytok",
     linkedin: "https://linkedin.com/in/shally-creative",
