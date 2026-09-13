@@ -37,7 +37,7 @@ const defaultSettings = {
     headlineHighlight: "Hypnotic Edits",
     headlineSuffix: "Frame by Frame",
     description: "Short-form video editing isn't just cutting clips—it's psychological pacing, rhythmic sound design, speed ramps, and retention engineering.",
-    videoPreviewUrl: "/shally.png",
+    videoPreviewUrl: "https://assets.mixkit.co/videos/preview/mixkit-cyberpunk-woman-in-a-neon-world-43187-large.mp4",
     subtitleHookText: "“STOP LOSING 70% OF SCROLLERS IN THE FIRST 3 SECONDS.”",
     trackV2Label: "[3s HOOK TITLE]",
     trackV1Label: "HOOK_CLIP_A.mp4",
@@ -143,22 +143,23 @@ export const getSettings = async (req, res) => {
 export const updateSettings = async (req, res) => {
   try {
     const data = req.body;
+    inMemorySettings = {
+      ...inMemorySettings,
+      ...data,
+      hero: { ...inMemorySettings.hero, ...(data.hero || {}) },
+      videoWorkspace: { ...inMemorySettings.videoWorkspace, ...(data.videoWorkspace || {}) },
+      about: { ...inMemorySettings.about, ...(data.about || {}) },
+      socialEcosystem: { ...inMemorySettings.socialEcosystem, ...(data.socialEcosystem || {}) },
+      contentWriting: { ...inMemorySettings.contentWriting, ...(data.contentWriting || {}) },
+      contact: { ...inMemorySettings.contact, ...(data.contact || {}) },
+      socialLinks: { ...inMemorySettings.socialLinks, ...(data.socialLinks || {}) },
+      seo: { ...inMemorySettings.seo, ...(data.seo || {}) }
+    };
+
     if (getDbStatus()) {
-      let settings = await SiteSetting.findOneAndUpdate({}, data, { new: true, upsert: true });
+      let settings = await SiteSetting.findOneAndUpdate({}, { $set: data }, { new: true, upsert: true });
       return res.json({ success: true, message: "Site settings saved successfully!", data: settings });
     } else {
-      inMemorySettings = {
-        ...inMemorySettings,
-        ...data,
-        hero: { ...inMemorySettings.hero, ...(data.hero || {}) },
-        videoWorkspace: { ...inMemorySettings.videoWorkspace, ...(data.videoWorkspace || {}) },
-        about: { ...inMemorySettings.about, ...(data.about || {}) },
-        socialEcosystem: { ...inMemorySettings.socialEcosystem, ...(data.socialEcosystem || {}) },
-        contentWriting: { ...inMemorySettings.contentWriting, ...(data.contentWriting || {}) },
-        contact: { ...inMemorySettings.contact, ...(data.contact || {}) },
-        socialLinks: { ...inMemorySettings.socialLinks, ...(data.socialLinks || {}) },
-        seo: { ...inMemorySettings.seo, ...(data.seo || {}) }
-      };
       return res.json({ success: true, message: "Site settings saved successfully!", data: inMemorySettings });
     }
   } catch (error) {
