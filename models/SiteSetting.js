@@ -39,7 +39,7 @@ const siteSettingSchema = new mongoose.Schema(
       headlineHighlight: { type: String, default: "Hypnotic Edits" },
       headlineSuffix: { type: String, default: "Frame by Frame" },
       description: { type: String, default: "Short-form video editing isn't just cutting clips—it's psychological pacing, rhythmic sound design, speed ramps, and retention engineering." },
-      videoPreviewUrl: { type: String, default: "/shally.png" },
+      videoPreviewUrl: { type: String, default: "https://assets.mixkit.co/videos/preview/mixkit-cyberpunk-woman-in-a-neon-world-43187-large.mp4" },
       subtitleHookText: { type: String, default: "“STOP LOSING 70% OF SCROLLERS IN THE FIRST 3 SECONDS.”" },
       trackV2Label: { type: String, default: "[3s HOOK TITLE]" },
       trackV1Label: { type: String, default: "HOOK_CLIP_A.mp4" },
