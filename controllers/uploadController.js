@@ -1,5 +1,7 @@
 import cloudinary from "../config/cloudinary.js";
 import streamifier from "streamifier";
+import { Media } from "../models/Media.js";
+import { getDbStatus } from "../config/db.js";
 
 export const uploadFile = async (req, res) => {
   try {
@@ -11,7 +13,7 @@ export const uploadFile = async (req, res) => {
     const isImage = file.mimetype.startsWith("image/");
     const isVideo = file.mimetype.startsWith("video/");
 
-    // Check if Cloudinary credentials are provided and valid
+    // 1. Check if Cloudinary credentials are provided and valid
     const hasCloudinary = process.env.CLOUDINARY_CLOUD_NAME && 
       process.env.CLOUDINARY_CLOUD_NAME !== "demo" && 
       process.env.CLOUDINARY_API_KEY && 
@@ -26,7 +28,6 @@ export const uploadFile = async (req, res) => {
           resource_type: isVideo ? "video" : "auto",
         };
 
-        // If image, force WebP conversion & auto quality
         if (isImage) {
           uploadOptions.format = "webp";
           uploadOptions.quality = "auto:good";
@@ -49,7 +50,7 @@ export const uploadFile = async (req, res) => {
 
         return res.json({
           success: true,
-          message: "File uploaded and converted to WebP successfully! ✨",
+          message: "File uploaded to Cloudinary successfully! ✨",
           data: {
             url: result.secure_url,
             format: result.format || (isImage ? "webp" : "original"),
@@ -59,17 +60,49 @@ export const uploadFile = async (req, res) => {
           }
         });
       } catch (cloudErr) {
-        console.warn("[Cloudinary Warning]: Cloudinary upload failed:", cloudErr.message, "Falling back to Base64 WebP format.");
-        // Falls through to Base64 fallback below
+        console.warn("[Cloudinary Warning]: Cloudinary upload failed:", cloudErr.message, "Falling back to MongoDB Media storage.");
       }
     }
 
-    // High Performance Base64 WebP Data Fallback
+    // 2. Persistent MongoDB Media Storage Fallback (Generates direct streaming URL)
+    if (getDbStatus()) {
+      try {
+        const media = new Media({
+          filename: file.originalname || (isVideo ? "video.webm" : "image.webp"),
+          contentType: file.mimetype || (isVideo ? "video/webm" : "image/webp"),
+          size: file.size || file.buffer.length,
+          data: file.buffer,
+          public_id: "media_" + Date.now()
+        });
+
+        await media.save();
+
+        const host = req.get("host") || "shallyserver.vercel.app";
+        const protocol = req.protocol === "http" && host.includes("vercel.app") ? "https" : req.protocol;
+        const mediaUrl = `${protocol}://${host}/api/media/${media._id}`;
+
+        return res.json({
+          success: true,
+          message: "File stored & ready for fast streaming! ✨",
+          data: {
+            url: mediaUrl,
+            format: isImage ? "webp" : file.mimetype.split("/")[1] || "video",
+            bytes: file.size || file.buffer.length,
+            public_id: media._id.toString(),
+            resource_type: isImage ? "image" : isVideo ? "video" : "raw"
+          }
+        });
+      } catch (dbErr) {
+        console.warn("[Media DB Warning]: Failed to save to MongoDB Media collection:", dbErr.message);
+      }
+    }
+
+    // 3. Fallback Base64 Data (Only if MongoDB not connected)
     const base64Data = `data:${isImage ? "image/webp" : file.mimetype};base64,${file.buffer.toString("base64")}`;
     
     return res.json({
       success: true,
-      message: "File converted to WebP and processed successfully! ✨",
+      message: "File processed successfully! ✨",
       data: {
         url: base64Data,
         format: isImage ? "webp" : file.mimetype.split("/")[1] || "file",
@@ -81,5 +114,53 @@ export const uploadFile = async (req, res) => {
   } catch (error) {
     console.error("Upload error:", error);
     res.status(500).json({ success: false, message: error.message || "Failed to process upload." });
+  }
+};
+
+// Stream Media with HTTP 206 Partial Content support for videos & images
+export const getMediaById = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const media = await Media.findById(id);
+
+    if (!media || !media.data) {
+      return res.status(404).json({ success: false, message: "Media not found." });
+    }
+
+    const totalSize = media.size || media.data.length;
+    const contentType = media.contentType || "video/webm";
+    const range = req.headers.range;
+
+    // HTTP Range streaming for videos (allows scrubbing & instant playback)
+    if (range) {
+      const parts = range.replace(/bytes=/, "").split("-");
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+      const chunkSize = end - start + 1;
+
+      res.writeHead(206, {
+        "Content-Range": `bytes ${start}-${end}/${totalSize}`,
+        "Accept-Ranges": "bytes",
+        "Content-Length": chunkSize,
+        "Content-Type": contentType,
+        "Cache-Control": "public, max-age=31536000, immutable"
+      });
+
+      const bufferSlice = media.data.slice(start, end + 1);
+      return res.end(bufferSlice);
+    }
+
+    // Full file delivery
+    res.writeHead(200, {
+      "Content-Length": totalSize,
+      "Content-Type": contentType,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "public, max-age=31536000, immutable"
+    });
+
+    return res.end(media.data);
+  } catch (error) {
+    console.error("Get Media error:", error);
+    res.status(500).json({ success: false, message: error.message || "Error retrieving media." });
   }
 };
