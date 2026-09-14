@@ -37,7 +37,7 @@ const defaultSettings = {
     headlineHighlight: "Hypnotic Edits",
     headlineSuffix: "Frame by Frame",
     description: "Short-form video editing isn't just cutting clips—it's psychological pacing, rhythmic sound design, speed ramps, and retention engineering.",
-    videoPreviewUrl: "https://assets.mixkit.co/videos/preview/mixkit-cyberpunk-woman-in-a-neon-world-43187-large.mp4",
+    videoPreviewUrl: "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4",
     subtitleHookText: "“STOP LOSING 70% OF SCROLLERS IN THE FIRST 3 SECONDS.”",
     trackV2Label: "[3s HOOK TITLE]",
     trackV1Label: "HOOK_CLIP_A.mp4",
